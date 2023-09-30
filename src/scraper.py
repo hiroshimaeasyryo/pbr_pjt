@@ -1,7 +1,7 @@
 import pandas as pd
 from selenium import webdriver
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from selenium.webdriver.edge.service import Service
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -15,7 +15,7 @@ for cv in c.values:
     codes.append(cv[0])
 
 # WebDriverの設定
-driver = webdriver.Edge(service=Service(EdgeChromiumDriverManager().install()))
+driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
 
 base_url = 'https://www.nikkei.com/nkd/company/?scode='
 
