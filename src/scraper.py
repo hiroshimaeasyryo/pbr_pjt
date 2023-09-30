@@ -9,18 +9,13 @@ import time
 
 
 # csvの読み込み
-c = pd.read_csv('../data/codes.csv', header=None)
+c = pd.read_csv('data/codes.csv', header=None)
 codes = []
 for cv in c.values:
     codes.append(cv[0])
 
-# ヘッドレスモードの設定
-# options = webdriver.EdgeOptions()
-# options.add_argument('--headless')
-
 # WebDriverの設定
 driver = webdriver.Edge(service=Service(EdgeChromiumDriverManager().install()))
-# driver = webdriver.Edge(service=Service(EdgeChromiumDriverManager().install()), options=options)
 
 base_url = 'https://www.nikkei.com/nkd/company/?scode='
 
@@ -159,6 +154,6 @@ df = pd.DataFrame({
     'actual_pbr': actual_pbrs})
 
 # dfの保存
-df.to_csv("../data/output.csv", index=False, encoding="UTF-8")
+df.to_csv("data/output.csv", index=False, encoding="UTF-8")
 
 driver.close()

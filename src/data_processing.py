@@ -3,8 +3,8 @@ import pandas as pd
 
 def process_data():
     # データの読み込みとマージ
-    scraping_df = pd.read_csv('../data/output.csv')
-    type_data = pd.read_excel('../data/data_j.xls')
+    scraping_df = pd.read_csv('data/output.csv')
+    type_data = pd.read_excel('data/data_j.xls')
     merged_df = pd.merge(scraping_df, type_data[['コード', '33業種区分']], left_on='code', right_on='コード', how='left')
     merged_df.drop('コード', axis=1, inplace=True)
 

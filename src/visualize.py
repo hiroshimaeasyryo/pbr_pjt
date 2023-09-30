@@ -61,4 +61,4 @@ fig.update_layout(
 )
 
 # フィギュアを表示
-fig.write_html('../web/all_graphs.html', config={'responsive': True})
+fig.write_html('web/all_graphs.html', config={'responsive': True})
