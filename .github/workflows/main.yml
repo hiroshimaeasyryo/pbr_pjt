@@ -2,7 +2,7 @@ name: Update and Deploy HTML
 
 on:
   schedule:
-    - cron: '0 7 * * *'  # 毎日16時に実行
+    - cron: '0 8 * * *'  # 毎日17時に実行
 
 jobs:
   build:
@@ -37,5 +37,6 @@ jobs:
         git add web/index.html
         git add web/style.css
         git add web/script.js
+        git checkout -b for_pages
         git commit -m "Update HTML"
         git push origin HEAD:for_pages
