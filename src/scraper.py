@@ -1,7 +1,7 @@
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -14,6 +14,8 @@ chrome_options = Options()
 chrome_options.add_argument("--headless")  # ヘッドレスモードを有効にする
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--disable-gpu")  # GPUを無効にする
+chrome_options.add_argument("--remote-debugging-port=9222")  # デバッグポートを設定
 
 # csvの読み込み
 c = pd.read_csv('data/codes.csv', header=None)
@@ -22,7 +24,7 @@ for cv in c.values:
     codes.append(cv[0])
 
 # WebDriverの設定
-driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()))
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 base_url = 'https://www.nikkei.com/nkd/company/?scode='
 
