@@ -41,7 +41,7 @@ jobs:
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         git add web/index.html
-        git add web/style.css
+        git add web/styles.css
         git add web/script.js
         git checkout -b for_pages
         git commit -m "Update HTML"
