@@ -47,6 +47,6 @@ jobs:
         git add web/index.html
         git add web/styles.css
         git add web/script.js
-        git checkout -b for_pages
+        git checkout for_pages
         git commit -m "Update HTML"
-        git push origin HEAD:for_pages
+        git push origin for_pages
