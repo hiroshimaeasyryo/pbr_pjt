@@ -48,6 +48,11 @@ jobs:
         git add web/index.html
         git add web/styles.css
         git add web/script.js
+        
+        # Fetch all branches from the remote
+        git fetch origin
+        
+        # Checkout the for_pages branch
         git checkout for_pages
         
         # Check if there are changes in the staging area
