@@ -43,18 +43,17 @@ jobs:
         git config user.email "actions@github.com"
         git remote set-url origin https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/hiroshimaeasyryo/pbr_pjt.git
 
-    - name: Push to for_pages branch(already exists)
+    - name: Push to for_pages branch
       run: |
         git add web/index.html
         git add web/styles.css
         git add web/script.js
-
-        EXISTS=$(git show-ref --verify --quiet refs/heads/for_pages; echo $?)
-        if [ $EXISTS -ne 0 ]; then
-          git checkout -b for_pages
-        else
-          git checkout for_pages
-        fi
+        git checkout for_pages
         
-        git commit -m "Update HTML"
-        git push origin for_pages
+        # Check if there are changes in the staging area
+        if git diff-index --quiet HEAD --; then
+            echo "No changes to commit"
+        else
+            git commit -m "Update HTML"
+            git push origin for_pages
+        fi
