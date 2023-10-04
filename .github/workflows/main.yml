@@ -3,6 +3,7 @@ name: Update and Deploy HTML
 on:
   schedule:
     - cron: '0 7 * * *'  # 毎日16時に実行
+  workflow_dispatch:
 
 jobs:
   build:
