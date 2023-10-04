@@ -47,6 +47,13 @@ jobs:
         git add web/index.html
         git add web/styles.css
         git add web/script.js
-        git checkout for_pages
+
+        EXISTS=$(git show-ref --verify --quiet refs/heads/for_pages; echo $?)
+        if [ $EXISTS -ne 0 ]; then
+          git checkout -b for_pages
+        else
+          git checkout for_pages
+        fi
+        
         git commit -m "Update HTML"
         git push origin for_pages
