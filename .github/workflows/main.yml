@@ -54,16 +54,12 @@ jobs:
         git add web/styles.css
         git add web/script.js
         
-        # Fetch all branches from the remote
-        git fetch origin
-        
-        # Checkout the for_pages branch
-        git checkout for_pages
-        
-        # Check if there are changes in the staging area
-        if git diff-index --quiet HEAD --; then
-            echo "No changes to commit"
+        EXISTS=$(git show-ref --verify --quiet refs/heads/for_pages; echo $?)
+        if [ $EXISTS -ne 0 ]; then
+          git checkout -b for_pages
         else
-            git commit -m "Update HTML"
-            git push origin for_pages
+          git checkout for_pages
         fi
+        
+        git commit -m "Update HTML"
+        git push origin for_pages
