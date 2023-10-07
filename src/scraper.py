@@ -77,9 +77,6 @@ for code in codes:
     else:
         pass
 
-    # 邪魔なのでウィンドウサイズを最小化
-    driver.minimize_window()
-
     # 銘柄名
     stock_name = driver.title[1:].split('】')[0]
     stock_names.append(stock_name)

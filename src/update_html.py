@@ -30,7 +30,7 @@ FOOTER = """
 """
 
 # all_graphs.htmlから内容を読み込む
-with open('web/all_graphs.html', 'r') as file:
+with open('docs/all_graphs.html', 'r') as file:
     all_graphs_content = file.read()
 
 # BeautifulSoupオブジェクトを作成
