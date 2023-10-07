@@ -45,21 +45,21 @@ jobs:
 
     - name: Commit changes
       run: |
-        git add data/output.csv web/all_graphs.html
+        git add data/output.csv docs/all_graphs.html
         git commit -m "Commit necessary changes before switching branches"
 
-    - name: Push to for_pages branch
+    - name: Push to gh-pages branch
       run: |
-        git add web/index.html
-        git add web/styles.css
-        git add web/script.js
+        git add docs/index.html
+        git add docs/styles.css
+        git add docs/script.js
         
-        EXISTS=$(git show-ref --verify --quiet refs/heads/for_pages; echo $?)
+        EXISTS=$(git show-ref --verify --quiet refs/heads/gh-pages; echo $?)
         if [ $EXISTS -ne 0 ]; then
-          git checkout -b for_pages
+          git checkout -b gh-pages
         else
-          git checkout for_pages
+          git checkout gh-pages
         fi
         
         git commit -m "Update HTML"
-        git push origin for_pages
+        git push origin gh-pages

@@ -54,5 +54,5 @@ body.insert(0, BeautifulSoup(NAVBAR, 'html.parser'))
 body.append(BeautifulSoup(FOOTER, 'html.parser'))
 
 # 結果を新しいHTMLファイルに書き出す
-with open('web/index.html', 'w') as file:
+with open('docs/index.html', 'w') as file:
     file.write(str(soup))
