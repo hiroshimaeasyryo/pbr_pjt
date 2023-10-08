@@ -64,6 +64,10 @@ jobs:
           git checkout gh-pages
         fi
         
+        # Fetch the remote changes and rebase local changes on top of them
+        git fetch origin gh-pages
+        git rebase origin/gh-pages
+        
         if git diff-index --quiet HEAD --; then
           echo "No changes to commit in gh-pages branch"
         else
@@ -71,4 +75,4 @@ jobs:
           git commit -m "Update HTML"
         fi
         
-        git push --set-upstream origin gh-pages
+        git push --force-with-lease --set-upstream origin gh-pages
