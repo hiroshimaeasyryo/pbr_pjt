@@ -56,9 +56,16 @@ jobs:
       run: |        
         EXISTS=$(git show-ref --verify --quiet refs/heads/gh-pages; echo $?)
         if [ $EXISTS -ne 0 ]; then
-          git switch -c gh-pages
+          git checkout -b gh-pages
         else
-          git switch gh-pages
+          git checkout gh-pages
+        fi
+        
+        if git diff-index --quiet HEAD --; then
+          echo "No changes to commit in gh-pages branch"
+        else
+          git add docs/index.html docs/all_graphs.html
+          git commit -m "Update HTML"
         fi
         
         git push --set-upstream origin gh-pages
