@@ -68,11 +68,11 @@ jobs:
         git fetch origin gh-pages
         git rebase origin/gh-pages
         
-        if git diff-index --quiet HEAD --; then
+        if [ -z "$(git status --porcelain)" ]; then
           echo "No changes to commit in gh-pages branch"
         else
           git add docs/index.html docs/all_graphs.html
           git commit -m "Update HTML"
         fi
         
-        git push --force-with-lease --set-upstream origin gh-pages
+        git push --force --set-upstream origin gh-pages
