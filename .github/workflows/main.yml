@@ -64,14 +64,14 @@ jobs:
           git checkout gh-pages
         fi
         
-        # Fetch the remote changes and rebase local changes on top of them
+        # Fetch the remote changes and merge local changes with them
         git fetch origin gh-pages
-        git rebase origin/gh-pages
+        git merge origin/gh-pages
         
         if [ -z "$(git status --porcelain)" ]; then
           echo "No changes to commit in gh-pages branch"
         else
-          git add docs/index.html docs/all_graphs.html
+          git add .
           git commit -m "Update HTML"
         fi
         
