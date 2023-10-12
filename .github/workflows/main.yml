@@ -53,30 +53,21 @@ jobs:
           echo "No changes to commit"
         else
           git commit -m "Commit necessary changes before switching branches"
-        fi
-
-    - name: Checkout and Setup gh-pages branch
-      run: |        
-        EXISTS=$(git show-ref --verify --quiet refs/heads/gh-pages; echo $?)
-        if [ $EXISTS -ne 0 ]; then
-          git checkout -b gh-pages
-        else
-          git checkout gh-pages
-        fi
+          git push origin main
+          fi
   
-    - name: Sync gh-pages branch with remote
-      run: |
-        git fetch origin gh-pages
-        git reset --hard origin/gh-pages
-
-    - name: Apply local changes and push to gh-pages branch
+    - name: Create and Push to gh-pages branch
       run: |        
-        # [Your local changes here, e.g., moving files, etc.]
+        # Create a new gh-pages branch
+        git checkout --orphan new-gh-pages
+        git rm --cached -r .  # Remove all files from the old working tree
         
-        if [ -z "$(git status --porcelain)" ]; then
-          echo "No changes to commit in gh-pages branch"
-        else
-          git add .
-          git commit -m "Update HTML"
-          git push --force --set-upstream origin gh-pages
-        fi
+        # Copy necessary files from main branch
+        git checkout main -- docs
+        git checkout main -- .gitignore
+        
+        # Commit and push to new gh-pages branch
+        git add docs .gitignore
+        git commit -m "Update HTML"
+        git branch -M gh-pages
+        git push -f origin gh-pages
