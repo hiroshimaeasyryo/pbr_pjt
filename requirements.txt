@@ -1,7 +1,0 @@
-pandas
-numpy
-selenium
-beautifulsoup4
-plotly
-webdriver_manager
-xlrd
