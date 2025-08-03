@@ -7,6 +7,7 @@ from datetime import datetime
 import logging
 from src.config import config
 from src.jquants_client import JQuantsClient
+import os
 
 class SecureStockCodeFetcher:
     """
@@ -14,6 +15,9 @@ class SecureStockCodeFetcher:
     """
     
     def __init__(self):
+        # ロガーの設定（最初に初期化）
+        self.logger = logging.getLogger(__name__)
+        
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -21,9 +25,6 @@ class SecureStockCodeFetcher:
         
         # 設定の検証
         self._validate_config()
-        
-        # ロガーの設定
-        self.logger = logging.getLogger(__name__)
         
         # j-Quantsクライアントの初期化
         self.jquants_client = None
@@ -36,8 +37,8 @@ class SecureStockCodeFetcher:
         """
         設定の妥当性を検証
         """
-        if not config.validate_api_keys():
-            self.logger.warning("一部のAPIキーが設定されていません。一部の機能が制限される可能性があります。")
+        if not config.jquants_refresh_token:
+            self.logger.warning("JQUANTS_REFRESH_TOKENが設定されていません。j-Quants APIが利用できません。")
     
     def fetch_from_jquants(self):
         """
@@ -67,144 +68,73 @@ class SecureStockCodeFetcher:
             self.logger.error(f"j-Quants APIからの取得に失敗: {e}")
             return None
     
-    def fetch_from_alpha_vantage(self):
-        """
-        Alpha Vantage APIから東証プライム銘柄を取得
-        """
-        api_key = config.get_api_key('alpha_vantage')
-        if not api_key:
-            self.logger.warning("Alpha Vantage APIキーが設定されていません")
-            return None
-        
-        try:
-            url = f"https://www.alphavantage.co/query"
-            params = {
-                'function': 'LISTING_STATUS',
-                'apikey': api_key
-            }
-            
-            response = self.session.get(url, params=params, timeout=config.timeout)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # 日本株の東証プライム銘柄をフィルタリング
-            prime_codes = []
-            if 'data' in data:
-                for item in data['data']:
-                    if (item.get('exchange') == 'TSE' and 
-                        item.get('market') == 'PRIME'):
-                        prime_codes.append(item.get('symbol'))
-            
-            if prime_codes:
-                self.logger.info(f"Alpha Vantageから{len(prime_codes)}件の銘柄コードを取得しました")
-                return prime_codes
-            else:
-                self.logger.warning("Alpha Vantageから有効な銘柄コードを取得できませんでした")
-                return None
-            
-        except Exception as e:
-            self.logger.error(f"Alpha Vantage APIからの取得に失敗: {e}")
-            return None
-    
-    def fetch_from_quandl(self):
-        """
-        Quandl APIから日本株データを取得
-        """
-        api_key = config.get_api_key('quandl')
-        if not api_key:
-            self.logger.warning("Quandl APIキーが設定されていません")
-            return None
-        
-        try:
-            url = f"https://www.quandl.com/api/v3/datasets/WIKI/PRICES.json"
-            params = {
-                'api_key': api_key,
-                'limit': 1000
-            }
-            
-            response = self.session.get(url, params=params, timeout=config.timeout)
-            response.raise_for_status()
-            
-            data = response.json()
-            
-            # 日本株の銘柄コードを抽出
-            codes = []
-            if 'datasets' in data:
-                for dataset in data['datasets']:
-                    code = dataset.get('dataset_code')
-                    if code and code.isdigit() and len(code) == 4:
-                        codes.append(code)
-            
-            if codes:
-                self.logger.info(f"Quandlから{len(codes)}件の銘柄コードを取得しました")
-                return codes
-            else:
-                self.logger.warning("Quandlから有効な銘柄コードを取得できませんでした")
-                return None
-            
-        except Exception as e:
-            self.logger.error(f"Quandl APIからの取得に失敗: {e}")
-            return None
-    
     def fetch_from_jpx_official(self):
         """
-        JPX公式サイトから上場企業情報を取得
+        日本取引所グループ公式サイトから東証プライム銘柄を取得
         """
         try:
             url = "https://www.jpx.co.jp/listing/stocks/new/index.html"
-            
             response = self.session.get(url, timeout=config.timeout)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # 東証プライム銘柄を抽出（実際のHTML構造に基づいて実装）
-            codes = []
-            # ここでHTMLから銘柄コードを抽出する処理を実装
+            # 東証プライム銘柄のテーブルを探す
+            tables = soup.find_all('table')
+            prime_codes = []
             
-            if codes:
-                self.logger.info(f"JPX公式サイトから{len(codes)}件の銘柄コードを取得しました")
-                return codes
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all('td')
+                    if len(cells) >= 2:
+                        # 証券コードを抽出
+                        code_cell = cells[0].get_text(strip=True)
+                        if code_cell.isdigit() and len(code_cell) == 4:
+                            prime_codes.append(code_cell)
+            
+            if prime_codes:
+                self.logger.info(f"日本取引所グループ公式サイトから{len(prime_codes)}件の銘柄コードを取得しました")
+                return prime_codes
             else:
-                self.logger.warning("JPX公式サイトから有効な銘柄コードを取得できませんでした")
+                self.logger.warning("日本取引所グループ公式サイトから有効な銘柄コードを取得できませんでした")
                 return None
-            
+                
         except Exception as e:
-            self.logger.error(f"JPX公式サイトからの取得に失敗: {e}")
+            self.logger.error(f"日本取引所グループ公式サイトからの取得に失敗: {e}")
             return None
     
     def fetch_from_local_backup(self):
         """
-        ローカルバックアップファイルから取得（フォールバック用）
+        ローカルバックアップファイルから銘柄コードを取得
         """
         try:
-            df = pd.read_csv(config.codes_file, header=None)
-            codes = df[0].tolist()
-            
-            if codes:
-                self.logger.info(f"ローカルバックアップから{len(codes)}件の銘柄コードを読み込みました")
+            backup_file = config.get_backup_path('prime_stock_codes.csv')
+            if os.path.exists(backup_file):
+                df = pd.read_csv(backup_file)
+                codes = df['code'].astype(str).tolist()
+                self.logger.info(f"ローカルバックアップから{len(codes)}件の銘柄コードを取得しました")
                 return codes
             else:
-                self.logger.warning("ローカルバックアップファイルが空です")
+                self.logger.warning("ローカルバックアップファイルが見つかりません")
                 return None
-                
         except Exception as e:
             self.logger.error(f"ローカルバックアップからの取得に失敗: {e}")
             return None
     
     def get_prime_stock_codes(self, method='auto'):
         """
-        東証プライム上場企業の証券コードを取得
+        東証プライム銘柄コードを取得
         
         Args:
-            method (str): 取得方法 ('auto', 'jquants', 'alpha_vantage', 'quandl', 'jpx', 'local')
+            method (str): 取得方法 ('auto', 'jquants', 'jpx', 'backup')
         
         Returns:
-            list: 証券コードのリスト
+            list: 銘柄コードのリスト
         """
         if method == 'auto':
-            methods = ['jquants', 'alpha_vantage', 'quandl', 'jpx', 'local']
+            # 優先順位: j-Quants > 日本取引所グループ公式 > ローカルバックアップ
+            methods = ['jquants', 'jpx', 'backup']
         else:
             methods = [method]
         
@@ -213,45 +143,48 @@ class SecureStockCodeFetcher:
             
             if method_name == 'jquants':
                 codes = self.fetch_from_jquants()
-            elif method_name == 'alpha_vantage':
-                codes = self.fetch_from_alpha_vantage()
-            elif method_name == 'quandl':
-                codes = self.fetch_from_quandl()
             elif method_name == 'jpx':
                 codes = self.fetch_from_jpx_official()
-            elif method_name == 'local':
+            elif method_name == 'backup':
                 codes = self.fetch_from_local_backup()
             else:
+                self.logger.warning(f"未知の取得方法: {method_name}")
                 continue
             
-            if codes and len(codes) > 0:
-                self.logger.info(f"{method_name}から{len(codes)}件の銘柄コードを取得しました")
-                return codes
+            if codes:
+                # 取得したコードを検証
+                validated_codes = self.validate_codes(codes)
+                if validated_codes:
+                    self.logger.info(f"有効な銘柄コード{len(validated_codes)}件を取得しました")
+                    return validated_codes
+                else:
+                    self.logger.warning(f"{method_name}から取得したコードが無効でした")
+            else:
+                self.logger.warning(f"{method_name}から銘柄コードを取得できませんでした")
         
-        self.logger.error("すべての方法で銘柄コードの取得に失敗しました")
+        self.logger.error("すべての取得方法で失敗しました")
         return []
     
     def save_codes_to_file(self, codes, filename=None):
         """
-        取得した銘柄コードをファイルに保存
+        銘柄コードをファイルに保存
         
         Args:
-            codes (list): 証券コードのリスト
-            filename (str): 保存先ファイル名（Noneの場合は設定ファイルの値を使用）
+            codes (list): 銘柄コードのリスト
+            filename (str): 保存先ファイル名（省略時はデフォルト）
         """
-        if filename is None:
-            filename = config.output_file
+        if not filename:
+            filename = config.codes_file
         
         try:
-            df = pd.DataFrame(codes, columns=['code'])
+            df = pd.DataFrame({'code': codes})
             df.to_csv(filename, index=False, header=False)
-            self.logger.info(f"{len(codes)}件の銘柄コードを{filename}に保存しました")
+            self.logger.info(f"銘柄コード{len(codes)}件を{filename}に保存しました")
             
             # バックアップも作成
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_filename = f"codes_backup_{timestamp}.csv"
+            backup_filename = f"prime_stock_codes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             backup_path = config.get_backup_path(backup_filename)
-            df.to_csv(backup_path, index=False, header=False)
+            df.to_csv(backup_path, index=False)
             self.logger.info(f"バックアップを{backup_path}に保存しました")
             
         except Exception as e:
@@ -259,27 +192,26 @@ class SecureStockCodeFetcher:
     
     def validate_codes(self, codes):
         """
-        取得した銘柄コードの妥当性を検証
+        銘柄コードの妥当性を検証
         
         Args:
-            codes (list): 証券コードのリスト
+            codes (list): 銘柄コードのリスト
         
         Returns:
-            list: 検証済みの証券コードのリスト
+            list: 有効な銘柄コードのリスト
         """
-        validated_codes = []
+        valid_codes = []
         
         for code in codes:
-            code_str = str(code)
+            code_str = str(code).strip()
             
-            # 基本的な検証（4桁または5桁の数字）
-            if (code_str.isdigit() and
-                (len(code_str) == 4 or len(code_str) == 5) and
-                1000 <= int(code) <= 99999):
-                validated_codes.append(code)
+            # 4桁の数字かチェック
+            if re.match(r'^\d{4}$', code_str):
+                valid_codes.append(code_str)
+            else:
+                self.logger.debug(f"無効な銘柄コードをスキップ: {code}")
         
-        self.logger.info(f"検証前: {len(codes)}件, 検証後: {len(validated_codes)}件")
-        return validated_codes
+        return valid_codes
 
 def main():
     """
@@ -288,19 +220,12 @@ def main():
     fetcher = SecureStockCodeFetcher()
     
     # 銘柄コードを取得
-    codes = fetcher.get_prime_stock_codes(method='auto')
+    codes = fetcher.get_prime_stock_codes()
     
     if codes:
-        # コードの妥当性を検証
-        validated_codes = fetcher.validate_codes(codes)
-        
-        if validated_codes:
-            # 取得したコードを保存
-            fetcher.save_codes_to_file(validated_codes)
-            print(f"取得した銘柄コード数: {len(validated_codes)}")
-            print(f"最初の10件: {validated_codes[:10]}")
-        else:
-            print("有効な銘柄コードが見つかりませんでした")
+        # ファイルに保存
+        fetcher.save_codes_to_file(codes)
+        print(f"東証プライム銘柄コード{len(codes)}件を取得・保存しました")
     else:
         print("銘柄コードの取得に失敗しました")
 

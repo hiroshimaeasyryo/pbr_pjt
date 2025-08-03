@@ -12,11 +12,6 @@ class Config:
         # 環境変数ファイルを読み込み
         load_dotenv(env_file)
         
-        # API Keys
-        self.alpha_vantage_api_key = os.getenv('ALPHA_VANTAGE_API_KEY')
-        self.quandl_api_key = os.getenv('QUANDL_API_KEY')
-        self.yahoo_finance_api_key = os.getenv('YAHOO_FINANCE_API_KEY')
-        
         # j-Quants API Configuration
         self.jquants_refresh_token = os.getenv('JQUANTS_REFRESH_TOKEN')
         
@@ -60,41 +55,11 @@ class Config:
         """
         APIキーの存在確認
         """
-        missing_keys = []
-        
-        if not self.alpha_vantage_api_key:
-            missing_keys.append('ALPHA_VANTAGE_API_KEY')
-        if not self.quandl_api_key:
-            missing_keys.append('QUANDL_API_KEY')
-        if not self.yahoo_finance_api_key:
-            missing_keys.append('YAHOO_FINANCE_API_KEY')
         if not self.jquants_refresh_token:
-            missing_keys.append('JQUANTS_REFRESH_TOKEN')
-        
-        if missing_keys:
-            logging.warning(f"以下のAPIキーが設定されていません: {', '.join(missing_keys)}")
+            logging.warning("JQUANTS_REFRESH_TOKENが設定されていません")
             return False
         
         return True
-    
-    def get_api_key(self, service_name):
-        """
-        指定されたサービスのAPIキーを取得
-        
-        Args:
-            service_name (str): サービス名 ('alpha_vantage', 'quandl', 'yahoo_finance', 'jquants')
-        
-        Returns:
-            str: APIキー（設定されていない場合はNone）
-        """
-        key_mapping = {
-            'alpha_vantage': self.alpha_vantage_api_key,
-            'quandl': self.quandl_api_key,
-            'yahoo_finance': self.yahoo_finance_api_key,
-            'jquants': self.jquants_refresh_token  # j-Quantsはrefresh_tokenを使用
-        }
-        
-        return key_mapping.get(service_name)
     
     def get_jquants_config(self):
         """
