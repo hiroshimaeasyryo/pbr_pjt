@@ -31,9 +31,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Create environment file
+        run: |
+          echo "# API Keys" > .env
+          echo "ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}" >> .env
+          echo "QUANDL_API_KEY=${{ secrets.QUANDL_API_KEY }}" >> .env
+          echo "YAHOO_FINANCE_API_KEY=${{ secrets.YAHOO_FINANCE_API_KEY }}" >> .env
+          echo "" >> .env
+          echo "# j-Quants API Configuration" >> .env
+          echo "JQUANTS_REFRESH_TOKEN=${{ secrets.JQUANTS_REFRESH_TOKEN }}" >> .env
+          echo "" >> .env
+          echo "# Logging Configuration" >> .env
+          echo "LOG_LEVEL=INFO" >> .env
+          echo "LOG_FILE=logs/app.log" >> .env
+          echo "" >> .env
+          echo "# Scraping Configuration" >> .env
+          echo "SCRAPING_DELAY=1" >> .env
+          echo "MAX_RETRIES=3" >> .env
+          echo "TIMEOUT=30" >> .env
+          echo "" >> .env
+          echo "# File Paths" >> .env
+          echo "CODES_FILE=data/codes.csv" >> .env
+          echo "OUTPUT_FILE=data/output.csv" >> .env
+          echo "BACKUP_DIR=data/backup/" >> .env
+
+      - name: Run dynamic stock code fetching
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python src/stock_code_fetcher_secure.py
+
       - name: Run Python scripts
         run: |
-          python src/scraper.py
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python src/scraper_dynamic.py
           python src/data_processing.py
           python src/visualize.py
           python src/update_html.py
