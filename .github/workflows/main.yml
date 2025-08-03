@@ -68,6 +68,21 @@ jobs:
           python src/visualize.py
           python src/update_html.py
 
+      - name: Generate time series charts
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python src/time_series_visualizer.py
+
+      - name: Cleanup old data
+        run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python -c "
+          from src.data_manager import DataManager
+          manager = DataManager()
+          manager.cleanup_old_files(keep_days=365)
+          print('Old data cleanup completed')
+          "
+
       - name: Set up Git credentials
         run: |
           git config user.name "GitHub Actions"

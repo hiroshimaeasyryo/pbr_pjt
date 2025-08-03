@@ -137,7 +137,7 @@ for code in codes:
         last_news_urls.append(last_news_url)
         
     # 適時開示
-    dscl_id = WebDriverWait(driver, 30).until(
+    dscl_id = WebDriverWait(driver, 60).until(
         EC.presence_of_all_elements_located((By.ID, 'JSID_cwCompanyInfo')))        
     last_disclosure_text = dscl_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0].text
     last_disclosures.append(last_disclosure_text)

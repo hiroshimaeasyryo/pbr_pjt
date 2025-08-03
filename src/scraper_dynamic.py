@@ -9,10 +9,12 @@ from selenium.webdriver.common.by import By
 import time
 import sys
 import os
+from datetime import datetime
 
 # 動的銘柄コード取得モジュールをインポート
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.stock_code_fetcher_working import WorkingStockCodeFetcher
+from src.data_manager import DataManager
 
 class DynamicStockScraper:
     """
@@ -23,6 +25,7 @@ class DynamicStockScraper:
         self.use_dynamic_codes = use_dynamic_codes
         self.codes_file = codes_file
         self.fetcher = WorkingStockCodeFetcher() if use_dynamic_codes else None
+        self.data_manager = DataManager()
         
         # Chrome設定
         self.chrome_options = Options()
@@ -233,8 +236,13 @@ class DynamicStockScraper:
                 'last_disclosure_url': self.last_disclosure_urls
             })
             
+            # 通常のCSVファイルに保存
             results_df.to_csv(filename, index=False, encoding='utf-8-sig')
             print(f"結果を{filename}に保存しました")
+            
+            # 時系列データとしても保存
+            self.data_manager.save_daily_data(results_df)
+            print("時系列データとして保存しました")
             
         except Exception as e:
             print(f"結果の保存に失敗: {e}")
