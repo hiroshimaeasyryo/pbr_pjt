@@ -6,6 +6,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 import time 
 
 
@@ -28,11 +29,27 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), opti
 
 base_url = 'https://www.nikkei.com/nkd/company/?scode='
 
+# リトライ機能付きのWebDriverWait
+def wait_with_retry(driver, timeout, condition, max_retries=2):
+    """
+    指定された条件を待機し、タイムアウトした場合はリトライする
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return WebDriverWait(driver, timeout).until(condition)
+        except TimeoutException:
+            if attempt < max_retries:
+                print(f"タイムアウトが発生しました。リトライ {attempt + 1}/{max_retries}...")
+                time.sleep(2)  # リトライ前に少し待機
+                continue
+            else:
+                print(f"最大リトライ回数に達しました。スキップします。")
+                raise TimeoutException(f"最大リトライ回数({max_retries})に達しました")
+
 # クラス名を指定して要素を抽出する
 def ext_by_cn(class_name, int, replace_text, type_to_change):
-    lst = WebDriverWait(driver, 30).until(
-        EC.presence_of_all_elements_located((By.CLASS_NAME, class_name))
-    )
+    lst = wait_with_retry(driver, 30, 
+                         EC.presence_of_all_elements_located((By.CLASS_NAME, class_name)))
     spcfd = lst[int].text.replace(replace_text, '')
     if ',' in spcfd:
         var = type_to_change(spcfd.replace(',', ''))
@@ -56,97 +73,135 @@ counter = 0
 
 # ループ
 for code in codes:
-    
-    current_url = base_url + str(code)
-    driver.get(current_url)
-    
-    # カレントURLを取得する
-    current_url = base_url + str(code)
-    current_urls.append(current_url)
-    
-    # カレントURLにアクセスする
-    driver.get(current_url)
-    
-    # 待機処理
-    time.sleep(1)
-    
-    # 初回だけ「株価指標ボタン」を押下する
-    if counter == 0:
-        btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CLASS_NAME, 'm-stockInfo_btn_open')))
-        driver.execute_script("arguments[0].click();", btn)
-    else:
-        pass
-
-    # 銘柄名
-    stock_name = driver.title[1:].split('】')[0]
-    stock_names.append(stock_name)
-    
-    # 直近時価
     try:
-        last_price = ext_by_cn('m-stockPriceElm_value', 0, ' 円', float)
-        last_prices.append(last_price)
-    except:
+        current_url = base_url + str(code)
+        driver.get(current_url)
+        
+        # カレントURLを取得する
+        current_url = base_url + str(code)
+        current_urls.append(current_url)
+        
+        # カレントURLにアクセスする
+        driver.get(current_url)
+        
+        # 待機処理
+        time.sleep(1)
+        
+        # 初回だけ「株価指標ボタン」を押下する
+        if counter == 0:
+            btn = wait_with_retry(driver, 10, EC.element_to_be_clickable((By.CLASS_NAME, 'm-stockInfo_btn_open')))
+            driver.execute_script("arguments[0].click();", btn)
+        else:
+            pass
+
+        # 銘柄名
+        stock_name = driver.title[1:].split('】')[0]
+        stock_names.append(stock_name)
+        
+        # 直近時価
+        try:
+            last_price = ext_by_cn('m-stockPriceElm_value', 0, ' 円', float)
+            last_prices.append(last_price)
+        except:
+            last_prices.append(None)
+        
+        # 予想PER
+        try:
+            expected_per = ext_by_cn('m-stockInfo_detail_value', 4, ' 倍', float)
+            expected_pers.append(expected_per)
+        except:
+            expected_pers.append(None)
+        
+        # 予想配当利回り
+        try:
+            expected_dividend_yield = ext_by_cn('m-stockInfo_detail_value', 5, ' ％', float)
+            expected_dividend_yields.append(expected_dividend_yield)
+        except:
+            expected_dividend_yields.append(None)
+            
+        # PBR実績値
+        try:
+            actual_pbr = ext_by_cn('m-stockInfo_detail_value', 6, ' 倍', float)
+            actual_pbrs.append(actual_pbr)
+        except:
+            actual_pbrs.append(None)
+            
+        # 予想ROE
+        try:
+            expected_roe = ext_by_cn('m-stockInfo_detail_value', 7, ' ％', float)
+            expected_roes.append(expected_roe)
+        except:
+            expected_roes.append(None)
+            
+        # ニュースがあるか
+        try:
+            news_id = wait_with_retry(driver, 20, 
+                                     EC.presence_of_all_elements_located((By.ID, 'JSID_cwCompanyNews')))
+        except TimeoutException:
+            news_id = []
+        
+        # ニュースがあったら
+        if len(news_id) > 0:
+            last_news_text = news_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0].text
+            last_news_texts.append(last_news_text)
+            
+            a = news_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0]
+            last_news_url = a.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            last_news_urls.append(last_news_url)
+        
+        else:
+            last_news_texts.append(None)
+            last_news_urls.append(None)
+            
+        # 適時開示
+        try:
+            dscl_id = wait_with_retry(driver, 60, 
+                                     EC.presence_of_all_elements_located((By.ID, 'JSID_cwCompanyInfo')))
+            last_disclosure_text = dscl_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0].text
+            last_disclosures.append(last_disclosure_text)
+
+            a = dscl_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0]
+            last_disclosure_url = a.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            last_disclosure_urls.append(last_disclosure_url)
+        except TimeoutException:
+            print(f"銘柄コード {code} の適時開示情報の取得に失敗しました。スキップします。")
+            last_disclosures.append(None)
+            last_disclosure_urls.append(None)
+            
+        counter += 1
+        
+    except TimeoutException as e:
+        print(f"銘柄コード {code} の処理中にタイムアウトが発生しました: {e}")
+        # 失敗した場合のデフォルト値を追加
+        current_urls.append(base_url + str(code))
+        stock_names.append(f"銘柄コード{code}")
         last_prices.append(None)
-    
-    # 予想PER
-    try:
-        expected_per = ext_by_cn('m-stockInfo_detail_value', 4, ' 倍', float)
-        expected_pers.append(expected_per)
-    except:
         expected_pers.append(None)
-    
-    # 予想配当利回り
-    try:
-        expected_dividend_yield = ext_by_cn('m-stockInfo_detail_value', 5, ' ％', float)
-        expected_dividend_yields.append(expected_dividend_yield)
-    except:
         expected_dividend_yields.append(None)
-        
-    # PBR実績値
-    try:
-        actual_pbr = ext_by_cn('m-stockInfo_detail_value', 6, ' 倍', float)
-        actual_pbrs.append(actual_pbr)
-    except:
-        actual_pbrs.append(None)
-        
-    # 予想ROE
-    try:
-        expected_roe = ext_by_cn('m-stockInfo_detail_value', 7, ' ％', float)
-        expected_roes.append(expected_roe)
-    except:
         expected_roes.append(None)
-        
-    # ニュースがあるか
-    try:
-        news_id = WebDriverWait(driver, 20).until(
-            EC.presence_of_all_elements_located((By.ID, 'JSID_cwCompanyNews')))
-    except:
-        news_id =[]
-    
-    # ニュースがあったら
-    if len(news_id) > 0:
-        last_news_text = news_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0].text
-        last_news_texts.append(last_news_text)
-        
-        a = news_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0]
-        last_news_url = a.find_element(By.TAG_NAME, 'a').get_attribute('href')
-        last_news_urls.append(last_news_url)
-    
-    else:
+        actual_pbrs.append(None)
         last_news_texts.append(None)
-        last_news_urls.append(last_news_url)
-        
-    # 適時開示
-    dscl_id = WebDriverWait(driver, 60).until(
-        EC.presence_of_all_elements_located((By.ID, 'JSID_cwCompanyInfo')))        
-    last_disclosure_text = dscl_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0].text
-    last_disclosures.append(last_disclosure_text)
-
-    a = dscl_id[0].find_elements(By.CLASS_NAME, 'm-listItem_text_text')[0]
-    last_disclosure_url = a.find_element(By.TAG_NAME, 'a').get_attribute('href')
-    last_disclosure_urls.append(last_disclosure_url)
-        
-    counter +=1
+        last_news_urls.append(None)
+        last_disclosures.append(None)
+        last_disclosure_urls.append(None)
+        counter += 1
+        continue
+    except Exception as e:
+        print(f"銘柄コード {code} の処理中にエラーが発生しました: {e}")
+        # 失敗した場合のデフォルト値を追加
+        current_urls.append(base_url + str(code))
+        stock_names.append(f"銘柄コード{code}")
+        last_prices.append(None)
+        expected_pers.append(None)
+        expected_dividend_yields.append(None)
+        expected_roes.append(None)
+        actual_pbrs.append(None)
+        last_news_texts.append(None)
+        last_news_urls.append(None)
+        last_disclosures.append(None)
+        last_disclosure_urls.append(None)
+        counter += 1
+        continue
     
 # dataframeの生成
 df = pd.DataFrame({
