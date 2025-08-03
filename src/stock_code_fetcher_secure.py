@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 import logging
 from src.config import config
+from src.jquants_client import JQuantsClient
 
 class SecureStockCodeFetcher:
     """
@@ -23,6 +24,13 @@ class SecureStockCodeFetcher:
         
         # ロガーの設定
         self.logger = logging.getLogger(__name__)
+        
+        # j-Quantsクライアントの初期化
+        self.jquants_client = None
+        try:
+            self.jquants_client = JQuantsClient()
+        except Exception as e:
+            self.logger.warning(f"j-Quantsクライアントの初期化に失敗: {e}")
     
     def _validate_config(self):
         """
@@ -30,6 +38,34 @@ class SecureStockCodeFetcher:
         """
         if not config.validate_api_keys():
             self.logger.warning("一部のAPIキーが設定されていません。一部の機能が制限される可能性があります。")
+    
+    def fetch_from_jquants(self):
+        """
+        j-Quants APIから東証プライム銘柄を取得
+        """
+        if not self.jquants_client:
+            self.logger.warning("j-Quantsクライアントが利用できません")
+            return None
+        
+        try:
+            # 認証を実行
+            if not self.jquants_client.authenticate():
+                self.logger.error("j-Quants API認証に失敗しました")
+                return None
+            
+            # 東証プライム銘柄コードを取得
+            prime_codes = self.jquants_client.get_prime_stock_codes()
+            
+            if prime_codes:
+                self.logger.info(f"j-Quantsから{len(prime_codes)}件の東証プライム銘柄コードを取得しました")
+                return prime_codes
+            else:
+                self.logger.warning("j-Quantsから有効な東証プライム銘柄コードを取得できませんでした")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"j-Quants APIからの取得に失敗: {e}")
+            return None
     
     def fetch_from_alpha_vantage(self):
         """
@@ -162,20 +198,22 @@ class SecureStockCodeFetcher:
         東証プライム上場企業の証券コードを取得
         
         Args:
-            method (str): 取得方法 ('auto', 'alpha_vantage', 'quandl', 'jpx', 'local')
+            method (str): 取得方法 ('auto', 'jquants', 'alpha_vantage', 'quandl', 'jpx', 'local')
         
         Returns:
             list: 証券コードのリスト
         """
         if method == 'auto':
-            methods = ['alpha_vantage', 'quandl', 'jpx', 'local']
+            methods = ['jquants', 'alpha_vantage', 'quandl', 'jpx', 'local']
         else:
             methods = [method]
         
         for method_name in methods:
             self.logger.info(f"{method_name}から銘柄コードを取得中...")
             
-            if method_name == 'alpha_vantage':
+            if method_name == 'jquants':
+                codes = self.fetch_from_jquants()
+            elif method_name == 'alpha_vantage':
                 codes = self.fetch_from_alpha_vantage()
             elif method_name == 'quandl':
                 codes = self.fetch_from_quandl()
@@ -232,12 +270,12 @@ class SecureStockCodeFetcher:
         validated_codes = []
         
         for code in codes:
-            code_str = str(code).zfill(4)
+            code_str = str(code)
             
-            # 基本的な検証
-            if (len(code_str) == 4 and 
-                code_str.isdigit() and
-                1000 <= int(code) <= 9999):
+            # 基本的な検証（4桁または5桁の数字）
+            if (code_str.isdigit() and
+                (len(code_str) == 4 or len(code_str) == 5) and
+                1000 <= int(code) <= 99999):
                 validated_codes.append(code)
         
         self.logger.info(f"検証前: {len(codes)}件, 検証後: {len(validated_codes)}件")
