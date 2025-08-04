@@ -23,7 +23,7 @@ class Config:
         self.log_file = os.getenv('LOG_FILE', 'logs/app.log')
         
         # Scraping Configuration
-        self.scraping_delay = int(os.getenv('SCRAPING_DELAY', '1'))
+        self.scraping_delay = float(os.getenv('SCRAPING_DELAY', '1'))
         self.max_retries = int(os.getenv('MAX_RETRIES', '3'))
         self.timeout = int(os.getenv('TIMEOUT', '30'))
         
