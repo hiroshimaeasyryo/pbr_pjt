@@ -117,7 +117,7 @@ jobs:
           python src/scraper_parallel.py
 
       - name: Upload scraped data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: scraped-data
           path: data/output.csv
@@ -148,7 +148,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download scraped data
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: scraped-data
           path: data/
@@ -180,7 +180,7 @@ jobs:
           python src/time_series_visualizer.py
 
       - name: Upload processed data
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: processed-data
           path: |
@@ -213,7 +213,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download processed data
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: processed-data
           path: ./
