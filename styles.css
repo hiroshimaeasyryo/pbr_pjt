@@ -25,7 +25,7 @@ body {margin:0;}
 
 /* Footerのスタイル */
 footer {
-    position: sticy;
+    position: sticky;
     text-align: center; /* テキストを中央に配置 */
     top: 100vh;
 }
