@@ -43,7 +43,22 @@ def process_data():
     
     # データの読み込みとマージ
     scraping_df = pd.read_csv('data/output.csv')
+
+    # 列名の正規化（想定列がそろっているか最終チェック）
+    expected_columns = ['code', 'name', 'price', 'expected_roe', 'expected_per', 'expected_dividend_yield', 'actual_pbr']
+    missing_columns = [c for c in expected_columns if c not in scraping_df.columns]
+    if missing_columns:
+        raise ValueError(f"data/output.csv に必須列がありません: {missing_columns}")
+
+    # 証券コードを4桁文字列に正規化
+    scraping_df['code'] = scraping_df['code'].astype(str).str.strip().str.replace(".0", "", regex=False)
+    scraping_df['code'] = scraping_df['code'].apply(lambda x: str(int(x)).zfill(4) if x.isdigit() else x)
+    
     type_data = pd.read_excel('data/data_j.xls')
+    # 業種データのコード列も文字列に統一
+    type_data['コード'] = type_data['コード'].astype(str).str.strip().str.replace(".0", "", regex=False)
+    type_data['コード'] = type_data['コード'].apply(lambda x: str(int(x)).zfill(4) if x.isdigit() else x)
+    
     merged_df = pd.merge(scraping_df, type_data[['コード', '33業種区分']], left_on='code', right_on='コード', how='left')
     merged_df.drop('コード', axis=1, inplace=True)
 

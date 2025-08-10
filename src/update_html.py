@@ -36,10 +36,8 @@ with open('docs/all_graphs.html', 'r') as file:
 # BeautifulSoupオブジェクトを作成
 soup = BeautifulSoup(all_graphs_content, 'html.parser')
 
-# 特定のdivタグを探索し、idを付与する
-div_tag = soup.find('div')
-if div_tag:
-    div_tag['id'] = 'graph'
+# Plotlyが自動生成する描画ターゲットdivのidはスクリプト内で参照されるため、
+# idを書き換えない（高さ調整はフロントのscriptで`.plotly-graph-div`に対して行う）
 
 # headタグにBootstrapのリンクを追加
 head = soup.head

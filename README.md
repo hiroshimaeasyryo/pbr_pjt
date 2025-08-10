@@ -74,12 +74,17 @@ python src/stock_code_fetcher_working.py
 ### スクレイピング実行
 
 ```bash
-# 動的銘柄コード取得を使用したスクレイピング
+# 動的銘柄コード取得を使用したスクレイピング（公式ルート）
 python src/scraper_dynamic.py
 
 # 従来の静的ファイルを使用したスクレイピング
 python src/scraper.py
 ```
+
+実行順序（公式ルート）:
+1) `python src/scraper_dynamic.py` で `data/output.csv` を生成（コードは4桁に正規化）
+2) `python src/visualize.py` で `docs/all_graphs.html` を生成
+3) `python src/update_html.py` で `docs/index.html` を生成
 
 ## プロジェクト構造
 

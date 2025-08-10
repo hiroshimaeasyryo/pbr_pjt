@@ -6,6 +6,10 @@ import plotly.graph_objects as go
 # 処理済データの受け取り
 data = process_data()
 
+# データが空の場合のフェイルセーフ
+if not data:
+    raise RuntimeError("処理データが空です。まず'src/scraper_dynamic.py'で'data/output.csv'を生成してください。")
+
 # 初期のfigオブジェクトを作成
 fig = go.Figure()
 

@@ -10,6 +10,7 @@ import time
 import sys
 import os
 from datetime import datetime
+import argparse
 
 # 動的銘柄コード取得モジュールをインポート
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -63,11 +64,13 @@ class DynamicStockScraper:
         if self.use_dynamic_codes:
             print("動的に銘柄コードを取得中...")
             codes = self.fetcher.get_prime_stock_codes(method='auto')
-            
+
             if codes:
-                # 動的に取得したコードを保存
-                self.fetcher.save_codes_to_file(codes, 'data/codes_dynamic.csv')
-                return codes
+                # 正規化（4桁ゼロ埋め・数値4桁のみ）
+                normalized = self.normalize_codes(codes)
+                # 動的に取得したコードを保存（ログ用途）
+                self.fetcher.save_codes_to_file(normalized, 'data/codes_dynamic.csv')
+                return normalized
             else:
                 print("動的取得に失敗したため、静的ファイルを使用します")
                 return self._load_static_codes()
@@ -80,11 +83,10 @@ class DynamicStockScraper:
         """
         try:
             c = pd.read_csv(self.codes_file, header=None)
-            codes = []
-            for cv in c.values:
-                codes.append(cv[0])
-            print(f"静的ファイルから{len(codes)}件の銘柄コードを読み込みました")
-            return codes
+            codes = [cv[0] for cv in c.values]
+            normalized = self.normalize_codes(codes)
+            print(f"静的ファイルから{len(normalized)}件の銘柄コードを読み込みました")
+            return normalized
         except Exception as e:
             print(f"静的ファイルの読み込みに失敗: {e}")
             return []
@@ -217,28 +219,57 @@ class DynamicStockScraper:
                 self.last_disclosures.append(None)
                 self.last_disclosure_urls.append(None)
     
-    def save_results(self, filename='data/output_dynamic.csv'):
+    def save_results(self, filename='data/output.csv'):
         """
         スクレイピング結果を保存
         """
         try:
+            # コードを4桁ゼロ埋めの文字列に正規化
+            normalized_codes = [str(code).strip().zfill(4) for code in self.codes]
+
+            # 可視化・処理系と時系列系の両方に互換のある列名で保存
             results_df = pd.DataFrame({
-                'code': [str(code) for code in self.codes],
-                'stock_name': self.stock_names,
-                'last_price': self.last_prices,
+                # 共通
+                'code': normalized_codes,
+                'name': self.stock_names,
+                'price': self.last_prices,
                 'expected_per': self.expected_pers,
                 'expected_dividend_yield': self.expected_dividend_yields,
-                'actual_pbr': self.actual_pbrs,
                 'expected_roe': self.expected_roes,
+                'actual_pbr': self.actual_pbrs,
+                # 追加（時系列可視化の互換）
+                'stock_name': self.stock_names,
+                'last_price': self.last_prices,
+                # ニュース/開示
                 'last_news_text': self.last_news_texts,
                 'last_news_url': self.last_news_urls,
                 'last_disclosure': self.last_disclosures,
                 'last_disclosure_url': self.last_disclosure_urls
             })
+
+            # 必須列の最終検証
+            required_cols = ['code', 'name', 'price', 'expected_roe', 'expected_per', 'expected_dividend_yield', 'actual_pbr']
+            missing = [c for c in required_cols if c not in results_df.columns]
+            if missing:
+                raise ValueError(f"出力に必須列が不足しています: {missing}")
             
-            # 通常のCSVファイルに保存
-            results_df.to_csv(filename, index=False, encoding='utf-8-sig')
-            print(f"結果を{filename}に保存しました")
+            # 既存ファイルがあればマージ（codeキーで上書き追加）
+            if os.path.exists(filename):
+                try:
+                    existing = pd.read_csv(filename)
+                    if 'code' in existing.columns:
+                        existing['code'] = existing['code'].astype(str).str.strip().str.replace('.0', '', regex=False)
+                        existing['code'] = existing['code'].apply(lambda x: str(int(x)).zfill(4) if x.isdigit() else x)
+                    merged = existing.set_index('code')
+                    merged.update(results_df.set_index('code'))
+                    new_only = results_df[~results_df['code'].isin(merged.index)].set_index('code')
+                    merged = pd.concat([merged, new_only])
+                    merged.reset_index().to_csv(filename, index=False, encoding='utf-8-sig')
+                except Exception:
+                    results_df.to_csv(filename, index=False, encoding='utf-8-sig')
+            else:
+                results_df.to_csv(filename, index=False, encoding='utf-8-sig')
+            print(f"結果を{filename}に保存しました（マージ済み）")
             
             # 時系列データとしても保存
             self.data_manager.save_daily_data(results_df)
@@ -247,23 +278,54 @@ class DynamicStockScraper:
         except Exception as e:
             print(f"結果の保存に失敗: {e}")
     
-    def run(self):
+    def run(self, start_index=None, start_code=None, limit=None, resume=False):
         """
         メイン実行関数
         """
         try:
-            # 銘柄コードを取得
+            # 銘柄コードを取得（正規化済み）
             self.codes = self.get_stock_codes()
             
             if not self.codes:
                 print("銘柄コードの取得に失敗しました")
                 return
             
+            # 再開・開始位置・件数の制御
+            codes_to_scrape = list(self.codes)
+            if resume and os.path.exists('data/output.csv'):
+                try:
+                    existing = pd.read_csv('data/output.csv')
+                    if 'code' in existing.columns:
+                        existing_codes = set(existing['code'].astype(str).str.strip().apply(lambda x: str(int(x)).zfill(4) if x.isdigit() else x))
+                        codes_to_scrape = [c for c in codes_to_scrape if c not in existing_codes]
+                        print(f"再開モード: 既存{len(existing_codes)}件スキップ、対象{len(codes_to_scrape)}件")
+                except Exception as e:
+                    print(f"既存output.csv読み込み失敗: {e}")
+
+            if start_code is not None:
+                start_code = str(start_code).strip().zfill(4)
+                if start_code in codes_to_scrape:
+                    start_index = codes_to_scrape.index(start_code)
+                else:
+                    print(f"start_code {start_code} は一覧にありません。start_indexを使用します。")
+
+            if isinstance(start_index, int) and start_index > 0:
+                codes_to_scrape = codes_to_scrape[start_index:]
+                print(f"開始インデックス {start_index} から再開（残り {len(codes_to_scrape)} 件）")
+
+            if isinstance(limit, int) and limit > 0:
+                codes_to_scrape = codes_to_scrape[:limit]
+                print(f"最大 {limit} 件のみ処理")
+
+            if not codes_to_scrape:
+                print("処理対象がありません。終了します。")
+                return
+
             # スクレイピング実行
-            self.scrape_stock_data(self.codes)
+            self.scrape_stock_data(codes_to_scrape)
             
-            # 結果を保存
-            self.save_results()
+            # 結果を保存（統一出力: data/output.csv）
+            self.save_results('data/output.csv')
             
             print("スクレイピング完了")
             
@@ -275,13 +337,39 @@ class DynamicStockScraper:
             if hasattr(self, 'driver'):
                 self.driver.quit()
 
+    def normalize_codes(self, codes):
+        """
+        取得した銘柄コードを4桁の文字列に正規化し重複を除去
+        """
+        normalized = []
+        seen = set()
+        for code in codes:
+            s = str(code).strip()
+            # 末尾の不要な"0"付与・5桁化などの異常を防ぐため、数値のみを取り出して4桁に揃える
+            if s.isdigit():
+                s = str(int(s)).zfill(4)
+            else:
+                # 非数字はスキップ
+                continue
+            if len(s) == 4 and s.isdigit() and s not in seen:
+                normalized.append(s)
+                seen.add(s)
+        return normalized
+
 def main():
     """
     メイン実行関数
     """
+    parser = argparse.ArgumentParser(description='Dynamic stock scraper with resume options')
+    parser.add_argument('--start-index', type=int, default=None, help='先頭からのスキップ件数')
+    parser.add_argument('--start-code', type=str, default=None, help='このコードから開始（4桁）')
+    parser.add_argument('--limit', type=int, default=None, help='最大処理件数')
+    parser.add_argument('--resume', action='store_true', help='既存data/output.csvを基にスキップして再開')
+    args = parser.parse_args()
+
     # 動的取得を使用する場合
     scraper = DynamicStockScraper(use_dynamic_codes=True)
-    scraper.run()
+    scraper.run(start_index=args.start_index, start_code=args.start_code, limit=args.limit, resume=args.resume)
     
     # 静的ファイルを使用する場合
     # scraper = DynamicStockScraper(use_dynamic_codes=False)
